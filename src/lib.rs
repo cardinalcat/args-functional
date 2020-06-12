@@ -1,5 +1,8 @@
 //for every flag there will be child arguments
 use std::cell::RefCell;
+use std::rc::Rc;
+use std::boxed::Box;
+
 pub struct Arguments {
     args: Vec<Arg>,
     operations: Vec<Operation>,
@@ -9,14 +12,17 @@ pub struct Arguments {
 #[derive(Clone)]
 pub struct Operation {
     arg: String,
-    func: RefCell<&'static dyn Fn(&[Arg], &Arguments) -> ()>,
+    func: Rc<RefCell<Box<dyn Fn(&[Arg], &Arguments) -> ()>>>,
 }
 ///associates a given flag with a callback method
 impl Operation {
-    pub fn new(arg: String, func: &'static dyn Fn(&[Arg], &Arguments)) -> Self {
+    pub fn new<F>(arg: String, func: F) -> Self 
+        where F: Fn(&[Arg], &Arguments),
+            F: 'static
+    {
         Self {
             arg,
-            func: RefCell::new(func),
+            func: Rc::new(RefCell::new(Box::new(func))),
         }
     }
     pub fn select(name: &str, ops: &[Operation]) -> Option<Self> {
@@ -100,7 +106,10 @@ impl Arguments {
         }
     }
     ///adds a callback for a flag when it is found
-    pub fn invoke_callback(&mut self, flag: &str, func: &'static dyn Fn(&[Arg], &Arguments) -> ()) {
+    pub fn invoke_callback<F>(&mut self, flag: &str, func: F)
+        where F: Fn(&[Arg], &Arguments),
+            F: 'static
+    {
         self.operations.push(Operation::new(flag.to_string(), func));
     }
     ///invokes methods associated with the flags saved above
@@ -129,8 +138,8 @@ impl Arguments {
                 
         }
         for flag in self.flags.as_ref().unwrap().iter(){
-            if let Some(mut op) = Operation::select(&flag.get_name(), &self.operations){
-                let fun = op.func.get_mut();
+            if let Some(op) = Operation::select(&flag.get_name(), &self.operations){
+                let fun = op.func.borrow();
                 fun(flag.get_values(), &self);
             }
         }
