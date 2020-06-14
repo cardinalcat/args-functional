@@ -85,6 +85,9 @@ impl Arguments {
     ///constructs the parser
     pub fn new() -> Self {
         let mut args: Vec<String> = std::env::args().skip(1).collect();
+        if args.len() == 0 {
+            return Self {args: Vec::new(), operations: Vec::new(), flags: None}
+        }
         let mut arglist = Vec::new();
         let mut flags = Vec::new();
         let option: String = args.remove(0);
